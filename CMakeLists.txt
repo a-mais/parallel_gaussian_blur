@@ -15,7 +15,6 @@ include_directories(.)
 add_executable(Atividade_1
         main.c
         gaussian_blur.h
-        gaussian_blur_parallel.h
 )
 
 # link blibioteca da openmp

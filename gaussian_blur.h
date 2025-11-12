@@ -12,7 +12,7 @@ typedef struct {
 } Image;
 
 // Função que gera kernel Gaussiano com tamanho e sigma configuráveis
-static double **generateGaussianKernel(int size, double sigma) {
+static double **generate_gaussian_kernel(int size, double sigma) {
     int half = size / 2;
     double **kernel = (double **)malloc(size * sizeof(double *));
     for (int i = 0; i < size; i++)
@@ -35,11 +35,11 @@ static double **generateGaussianKernel(int size, double sigma) {
     return kernel;
 }
 
-void gaussianBlurSequential(Image *input, Image *output, int kernelSize, double sigma) {
+void gaussian_blur_sequential(Image *input, Image *output, int kernel_size, double sigma) {
     int width = input->width;
     int height = input->height;
-    int half = kernelSize / 2;
-    double **kernel = generateGaussianKernel(kernelSize, sigma);
+    int half = kernel_size / 2;
+    double **kernel = generate_gaussian_kernel(kernel_size, sigma);
 
     for (int y = half; y < height - half; y++) {
         for (int x = half; x < width - half; x++) {
@@ -60,7 +60,7 @@ void gaussianBlurSequential(Image *input, Image *output, int kernelSize, double 
         }
     }
 
-    for (int i = 0; i < kernelSize; i++)
+    for (int i = 0; i < kernel_size; i++)
         free(kernel[i]);
     free(kernel);
 }
