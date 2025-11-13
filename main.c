@@ -52,16 +52,18 @@ int main() {
     seq->max = img->max;
     seq->data = (unsigned char *) malloc(3 * img->width * img->height);
 
-    clock_t start, end;
+    struct timespec start, finish;
     double time_seq;
 
     printf("Aplicando desfoque Gaussiano sequencial...\n");
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     gaussian_blur_sequential(img, seq, kernel_size, sigma);
-    end = clock();
-    time_seq = (double) (end - start) / CLOCKS_PER_SEC;
+    clock_gettime(CLOCK_MONOTONIC, &finish);
 
-    printf("\nTempo Sequencial: %.4f s\n", time_seq);
+    double elapsed = (finish.tv_sec - start.tv_sec);
+    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+
+    printf("Tempo decorrido: %.9f segundos\n", elapsed);
 
     free(img->data);
     free(seq->data);
