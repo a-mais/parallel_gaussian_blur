@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <omp.h>
+#include <mpi.h>
+
 #include "gaussian_blur.h"
 #include "gaussian_blur_parallel.h"
 
@@ -35,53 +37,94 @@ void writePPM(const char *filename, Image *img) {
     fclose(fp);
 }
 
-int main() {
-    const char *inputPath = "../input/image.ppm";
-    const char *outputSeq = "../output/output_sequential.ppm";
-    const char *outputPar = "../output/output_parallel.ppm";
+int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
 
-    int kernelSize = 31;     // maior kernel == blur mais forte
-    double sigma = 46.0;      // intensidade do efeito
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    Image *img = readPPM(inputPath);
+    const char *inputPath  = "../input/image.ppm";
+    const char *outputSeq  = "../output/output_sequential.ppm";
+    const char *outputPar  = "../output/output_parallel.ppm";
+    const char *outputMPI  = "../output/output_mpi.ppm";
 
-    Image *seq = (Image *) malloc(sizeof(Image));
-    Image *par = (Image *) malloc(sizeof(Image));
-    seq->width = par->width = img->width;
-    seq->height = par->height = img->height;
-    seq->max = par->max = img->max;
-    seq->data = (unsigned char *) malloc(3 * img->width * img->height);
-    par->data = (unsigned char *) malloc(3 * img->width * img->height);
+    int kernelSize = 31;
+    double sigma = 46.0;
 
-    double start, end, time_seq, time_par;
+    Image *img = NULL;
+    Image *seq = NULL;
+    Image *par = NULL;
+    Image *mpi_img = NULL;
 
-    printf("Aplicando desfoque Gaussiano sequencial...\n");
-    start = omp_get_wtime();
-    gaussianBlurSequential(img, seq, kernelSize, sigma);
-    end = omp_get_wtime();
-    time_seq = end - start;
+    double time_seq = 0.0, time_par = 0.0, time_mpi = 0.0;
+    double start, end;
 
-    printf("Aplicando desfoque Gaussiano paralelo...\n");
-    start = omp_get_wtime();
-    gaussianBlurParallel(img, par, kernelSize, sigma);
-    end = omp_get_wtime();
-    time_par = end - start;
+    if (rank == 0) {
+        img = readPPM(inputPath);
 
-    double speedup = time_seq / time_par;
+        // Alocar imagens de saída
+        seq = malloc(sizeof(Image));
+        par = malloc(sizeof(Image));
+        mpi_img = malloc(sizeof(Image));
 
-    printf("\nTempo Sequencial: %.4f s\n", time_seq);
-    printf("Tempo Paralelo:   %.4f s\n", time_par);
-    printf("Speedup: %.2fx\n", speedup);
+        *seq = *img;
+        *par = *img;
+        *mpi_img = *img;
 
-    writePPM(outputSeq, seq);
-    writePPM(outputPar, par);
+        seq->data = malloc(3 * img->width * img->height);
+        par->data = malloc(3 * img->width * img->height);
+        mpi_img->data = malloc(3 * img->width * img->height);
 
-    free(img->data);
-    free(seq->data);
-    free(par->data);
-    free(img);
-    free(seq);
-    free(par);
+        printf("=== Benchmark Gaussian Blur ===\n");
+        printf("Imagem: %dx%d pixels\n", img->width, img->height);
+        printf("Kernel: %dx%d, sigma=%.1f\n", kernelSize, kernelSize, sigma);
+        printf("Processos MPI: %d\n\n", size);
 
+        // Sequencial
+        printf("1. Sequencial...\n");
+        start = omp_get_wtime();
+        gaussianBlurSequential(img, seq, kernelSize, sigma);
+        end = omp_get_wtime();
+        time_seq = end - start;
+    }
+
+    // OpenMP (apenas rank 0)
+    if (rank == 0) {
+        printf("2. OpenMP...\n");
+        start = omp_get_wtime();
+        gaussianBlurParallel(img, par, kernelSize, sigma);
+        end = omp_get_wtime();
+        time_par = end - start;
+    }
+
+    // MPI Híbrido
+    printf("Rank %d: 3. MPI Hibrido...\n", rank);
+    if (rank == 0) start = omp_get_wtime();
+    gaussianBlurMPI(img, mpi_img, kernelSize, sigma, MPI_COMM_WORLD);
+    if (rank == 0) {
+        end = omp_get_wtime();
+        time_mpi = end - start;
+    }
+
+    if (rank == 0) {
+        double speedup_par = time_seq / time_par;
+        double speedup_mpi = time_seq / time_mpi;
+
+        printf("\n=== RESULTADOS ===\n");
+        printf("Sequencial: %.4f s\n", time_seq);
+        printf("OpenMP:     %.4f s (%.2fx)\n", time_par, speedup_par);
+        printf("MPI:        %.4f s (%.2fx)\n", time_mpi, speedup_mpi);
+
+        writePPM(outputSeq, seq);
+        writePPM(outputPar, par);
+        writePPM(outputMPI, mpi_img);
+
+        // Cleanup
+        free(img->data); free(seq->data); free(par->data); free(mpi_img->data);
+        free(img); free(seq); free(par); free(mpi_img);
+    }
+
+    MPI_Finalize();
     return 0;
 }

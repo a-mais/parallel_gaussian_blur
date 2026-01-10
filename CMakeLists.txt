@@ -3,13 +3,14 @@ project(Atividade_1 C)
 
 set(CMAKE_C_STANDARD 11)
 
-# habilitar o OpenMP
-find_package(OpenMP REQUIRED)
-if(OpenMP_C_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-endif()
+# MPI first (with hint for MS-MPI SDK)
+set(MPI_DIR "C:/Program Files (x86)/Microsoft SDKs/MPI")
+find_package(MPI REQUIRED)
+message(STATUS "MPI found: ${MPI_C_LIBRARIES}")
 
-# inclui o diretório atual para os .h
+# OpenMP
+find_package(OpenMP REQUIRED)
+
 include_directories(.)
 
 add_executable(Atividade_1
@@ -18,7 +19,6 @@ add_executable(Atividade_1
         gaussian_blur_parallel.h
 )
 
-# link blibioteca da openmp
-if(OpenMP_C_FOUND)
-    target_link_libraries(Atividade_1 PUBLIC OpenMP::OpenMP_C)
-endif()
+target_link_libraries(Atividade_1 PUBLIC OpenMP::OpenMP_C MPI::MPI_C)
+
+target_compile_definitions(Atividade_1 PRIVATE USE_MPI)
