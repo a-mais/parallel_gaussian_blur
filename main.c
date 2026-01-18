@@ -98,10 +98,14 @@ int main(int argc, char *argv[]) {
         time_par = end - start;
     }
 
-    // MPI Híbrido
-    printf("Rank %d: 3. MPI Hibrido...\n", rank);
-    if (rank == 0) start = omp_get_wtime();
+    // MPI Híbrido - TODOS os processos participam
+    if (rank == 0) {
+        printf("3. MPI Hibrido...\n");
+        start = omp_get_wtime();
+    }
+
     gaussianBlurMPI(img, mpi_img, kernelSize, sigma, MPI_COMM_WORLD);
+
     if (rank == 0) {
         end = omp_get_wtime();
         time_mpi = end - start;
